@@ -14,6 +14,9 @@ trait MagicMethodsTrait
 {
     public function __set($name, $value)
     {
+        if ($name === 'Categories' && $value instanceof \stdClass && isset($value->String)) {
+            $value = $value->String;
+        }
         if (is_object($value) && !($value instanceof Type) && property_exists($value, "Entry")) {
             $value = $value->Entry;
         }
