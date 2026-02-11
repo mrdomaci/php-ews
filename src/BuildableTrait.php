@@ -64,19 +64,36 @@ trait BuildableTrait
         $reflect = new \ReflectionClass(static::class);
 
         foreach ($array as $key => $value) {
-            // If we're in strict mode, let's take the reflection class, check for a setter and try to use that to build
-            // the array, resulting in type-correct responses the whole way down.
             if ($strict === true && $reflect->hasMethod("set" . ucfirst($key))) {
                 $parameters = $reflect->getMethod("set" . ucfirst($key))->getParameters();
 
-                if (count($parameters) === 1
-                    && $parameters[0]->hasType()
-                    && $parameters[0]->getClass() !== null) {
-                    $classToBuild = $parameters[0]->getClass()->getName();
+                if (count($parameters) === 1 && $parameters[0]->hasType()) {
+                    $type = $parameters[0]->getType();
 
-                    $newValue = call_user_func("$classToBuild::buildFromArray", $value, true);
-                    $object->{ucfirst($key)} = $newValue;
-                    continue;
+                    $classToBuild = null;
+
+                    if ($type instanceof \ReflectionNamedType) {
+                        if (!$type->isBuiltin()) {
+                            $classToBuild = $type->getName();
+                        }
+                    } elseif ($type instanceof \ReflectionUnionType) {
+                        foreach ($type->getTypes() as $t) {
+                            if ($t instanceof \ReflectionNamedType && !$t->isBuiltin()) {
+                                $classToBuild = $t->getName();
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($classToBuild !== null) {
+                        if ($classToBuild === \DateTime::class || is_subclass_of($classToBuild, \DateTimeInterface::class)) {
+                            $newValue = is_string($value) ? new \DateTime($value) : $value;
+                        } else {
+                            $newValue = call_user_func("$classToBuild::buildFromArray", $value, true);
+                        }
+                        $object->{ucfirst($key)} = $newValue;
+                        continue;
+                    }
                 }
             }
 
@@ -84,7 +101,6 @@ trait BuildableTrait
                 $value = self::buildFromArray($value);
             }
 
-            //I think _value is a more expressive way to set string value, but Soap needs _
             if ($key === "_value") {
                 $key = "_";
             }

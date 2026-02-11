@@ -132,8 +132,18 @@ class ResponseMessageType extends Message
      * @param $value \garethp\ews\API\Message\ResponseMessageType\MessageXmlAType
      * @return ResponseMessageType
      */
-    public function setMessageXml(\garethp\ews\API\Message\ResponseMessageType\MessageXmlAType $value)
+    public function setMessageXml($value)
     {
+        if (is_array($value) || $value instanceof \stdClass) {
+            $extra = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($extra) {
+                $this->messageText = trim(($this->messageText ?? '') . "\n" . $extra);
+            }
+
+            $this->messageXml = null;
+            return $this;
+        }
+
         $this->messageXml = $value;
         return $this;
     }
